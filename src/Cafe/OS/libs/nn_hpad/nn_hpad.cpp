@@ -214,6 +214,8 @@ namespace nn::hpad
 			return HPAD_RESULT_NO_CONTROLLER;
 		}
 
+		// read the current state of the mapped input devices (like VPADRead/WPADRead do)
+		controller->controllers_update_states();
 		BuildStatus(chan, *controller, buffers[0]);
 		return 1;
 	}
