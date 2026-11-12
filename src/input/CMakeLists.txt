@@ -31,6 +31,8 @@ add_library(CemuInput
 	emulated/VPADController.h
 	emulated/ClassicController.cpp
 	emulated/ClassicController.h
+	emulated/GameCubePadController.cpp
+	emulated/GameCubePadController.h
 )
 
 set_property(TARGET CemuInput PROPERTY MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")
@@ -44,6 +46,17 @@ if (ENABLE_LIBUSB)
 		api/GameCube/GameCubeControllerProvider.cpp
 		api/GameCube/GameCubeController.h
 	)
+	if (ENABLE_VCPKG)
+		if(WIN32)
+			set(PKG_CONFIG_EXECUTABLE "${VCPKG_INSTALLED_DIR}/x64-windows/tools/pkgconf/pkgconf.exe")
+		endif()
+		find_package(PkgConfig REQUIRED)
+		pkg_check_modules(libusb REQUIRED IMPORTED_TARGET libusb-1.0)
+		target_link_libraries(CemuInput PRIVATE PkgConfig::libusb)
+	else ()
+		find_package(libusb MODULE REQUIRED)
+		target_link_libraries(CemuInput PRIVATE libusb::libusb)
+	endif ()
 endif()
 
 if(WIN32)

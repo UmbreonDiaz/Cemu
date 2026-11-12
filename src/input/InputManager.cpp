@@ -40,7 +40,7 @@ InputManager::InputManager()
 #if HAS_DSU
 	create_provider<DSUControllerProvider>();
 #endif
-#if defined(HAS_GAMECUBE) && HAS_GAMECUBE && defined(HAS_LIBUSB)
+#ifdef HAS_GAMECUBE
 	create_provider<GameCubeControllerProvider>();
 #endif
 #if HAS_WIIMOTE
@@ -589,6 +589,18 @@ EmulatedControllerPtr InputManager::set_controller(EmulatedControllerPtr control
 
 		break;
 
+	case EmulatedController::Type::GameCube:
+		for (auto& pad : m_hpad)
+		{
+			if (!pad)
+			{
+				pad.swap(controller);
+				return prev_controller;
+			}
+		}
+
+		break;
+
 	default:
 		for (auto& pad : m_wpad)
 		{
@@ -647,49 +659,45 @@ EmulatedControllerPtr InputManager::get_controller(size_t player_index) const
 			return pad;
 	}
 
+	for (const auto& pad : m_hpad)
+	{
+		if (pad && pad->player_index() == player_index)
+			return pad;
+	}
+
 	return {};
 }
 
 EmulatedControllerPtr InputManager::delete_controller(size_t player_index, bool delete_profile)
 {
 	std::scoped_lock lock(m_mutex);
-	for (auto& controller : m_vpad)
+	auto delete_from = [&](auto& pads) -> EmulatedControllerPtr
 	{
-		auto result = controller;
-		if (result && result->player_index() == player_index)
+		for (auto& controller : pads)
 		{
-			controller = {};
-
-			if(delete_profile)
+			auto result = controller;
+			if (result && result->player_index() == player_index)
 			{
-				std::error_code ec{};
-				fs::remove(ActiveSettings::GetConfigPath("controllerProfiles/controller{}.xml", player_index), ec);
-				fs::remove(ActiveSettings::GetConfigPath("controllerProfiles/controller{}.txt", player_index), ec);
+				controller = {};
+
+				if (delete_profile)
+				{
+					std::error_code ec{};
+					fs::remove(ActiveSettings::GetConfigPath("controllerProfiles/controller{}.xml", player_index), ec);
+					fs::remove(ActiveSettings::GetConfigPath("controllerProfiles/controller{}.txt", player_index), ec);
+				}
+
+				return result;
 			}
-
-			return result;
 		}
-	}
+		return {};
+	};
 
-	for (auto& controller : m_wpad)
-	{
-		auto result = controller;
-		if (result && result->player_index() == player_index)
-		{
-			controller = {};
-
-			if(delete_profile)
-			{
-				std::error_code ec{};
-				fs::remove(ActiveSettings::GetConfigPath("controllerProfiles/controller{}.xml", player_index), ec);
-				fs::remove(ActiveSettings::GetConfigPath("controllerProfiles/controller{}.txt", player_index), ec);
-			}
-
-			return result;
-		}
-	}
-
-	return {};
+	if (auto result = delete_from(m_vpad))
+		return result;
+	if (auto result = delete_from(m_wpad))
+		return result;
+	return delete_from(m_hpad);
 }
 
 
@@ -711,6 +719,29 @@ std::shared_ptr<WPADController> InputManager::get_wpad_controller(size_t index) 
 	return std::dynamic_pointer_cast<WPADController>(m_wpad[index]);
 }
 
+std::shared_ptr<GameCubePadController> InputManager::get_hpad_controller(size_t index) const
+{
+	if (index >= m_hpad.size())
+		return {};
+
+	// channel N is the Nth GameCube controller in player order (Controller 1, 2, ...)
+	std::shared_lock lock(m_mutex);
+	std::array<EmulatedControllerPtr, kMaxHPADControllers> sorted = m_hpad;
+	std::stable_sort(sorted.begin(), sorted.end(), [](const EmulatedControllerPtr& a, const EmulatedControllerPtr& b)
+	{
+		if (!a || !b)
+			return a != nullptr && b == nullptr;
+		return a->player_index() < b->player_index();
+	});
+	return std::dynamic_pointer_cast<GameCubePadController>(sorted[index]);
+}
+
+size_t InputManager::get_hpad_controller_count() const
+{
+	std::shared_lock lock(m_mutex);
+	return std::count_if(m_hpad.cbegin(), m_hpad.cend(), [](const auto& v) { return v != nullptr; });
+}
+
 std::pair<size_t, size_t> InputManager::get_controller_count() const
 {
 	std::shared_lock lock(m_mutex);
@@ -729,6 +760,12 @@ void InputManager::on_device_changed()
 	}
 
 	for (auto& pad : m_wpad)
+	{
+		if (pad)
+			pad->connect();
+	}
+
+	for (auto& pad : m_hpad)
 	{
 		if (pad)
 			pad->connect();
@@ -948,6 +985,12 @@ void InputManager::update_thread()
 			if (pad)
 				pad->update();
 		}
+
+		for (auto& pad : m_hpad)
+		{
+			if (pad)
+				pad->update();
+		}
 		lock.unlock();
 
 		std::this_thread::sleep_for(std::chrono::milliseconds(1));
@@ -966,6 +1009,7 @@ void InputManager::Shutdown()
 
     for (auto& pad : m_vpad) pad.reset();
 	for (auto& pad : m_wpad) pad.reset();
+	for (auto& pad : m_hpad) pad.reset();
 
 	for (auto& providers : m_api_available)
 	{

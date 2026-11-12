@@ -414,6 +414,8 @@ add_library(CemuCafe
   OS/libs/nn_save/nn_save.h
   OS/libs/nn_temp/nn_temp.cpp
   OS/libs/nn_temp/nn_temp.h
+  OS/libs/nn_hpad/nn_hpad.cpp
+  OS/libs/nn_hpad/nn_hpad.h
   OS/libs/nn_uds/nn_uds.cpp
   OS/libs/nn_uds/nn_uds.h
   OS/libs/nsyshid/nsyshid.cpp
