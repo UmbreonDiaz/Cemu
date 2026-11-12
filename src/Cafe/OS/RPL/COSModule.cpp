@@ -44,6 +44,7 @@
 #include "OS/libs/nn_cmpt/nn_cmpt.h"
 #include "OS/libs/nn_ccr/nn_ccr.h"
 #include "OS/libs/nn_temp/nn_temp.h"
+#include "OS/libs/nn_hpad/nn_hpad.h"
 #include "OS/libs/nn_aoc/nn_aoc.h"
 #include "OS/libs/nn_pdm/nn_pdm.h"
 #include "OS/libs/h264_avc/h264dec.h"
@@ -96,6 +97,7 @@ std::span<COSModule*> GetCOSModules()
 		nn::cmpt::GetModule(),
 		nn::ccr::GetModule(),
 		nn::temp::GetModule(),
+		nn::hpad::GetModule(),
 		nn::aoc::GetModule(),
 		nn::pdm::GetModule(),
 		H264::GetModule(),

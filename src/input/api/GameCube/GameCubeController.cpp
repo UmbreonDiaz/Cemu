@@ -1,23 +1,34 @@
 #include "input/api/GameCube/GameCubeController.h"
 
-#if defined(HAS_GAMECUBE) && HAS_GAMECUBE && defined(HAS_LIBUSB)
+#ifdef HAS_GAMECUBE
+
+namespace
+{
+	// how far the sticks and triggers of an original controller travel from their rest position
+	constexpr float kStickRange = 100.0f;
+	constexpr float kCStickRange = 100.0f;
+	constexpr float kTriggerRange = 200.0f;
+}
 
 GameCubeController::GameCubeController(uint32 adapter, uint32 index)
-	: base_type(fmt::format("{}_{}", adapter, index), fmt::format("Controller {}", index + 1)), m_adapter(adapter),
+	: base_type(fmt::format("{}_{}", adapter, index), fmt::format("Port {}", index + 1)), m_adapter(adapter),
 	  m_index(index)
 {
 	// update names if multiple adapters are connected
 	if (adapter > 0)
-		m_display_name = fmt::format("Controller {} ({})", index + 1, adapter);
+		m_display_name = fmt::format("Port {} (adapter {})", index + 1, adapter + 1);
 
-	m_settings.axis.range = 1.20f;
-	m_settings.rotation.range = 1.25f;
-	m_settings.trigger.range = 1.07f;
+	// GameCube sticks are precise, a small deadzone is enough
+	m_settings.axis.deadzone = 0.1f;
+	m_settings.rotation.deadzone = 0.1f;
+	m_settings.trigger.deadzone = 0.05f;
+
+	m_provider->start();
 }
 
 bool GameCubeController::is_connected()
 {
-	return m_provider->is_connected(m_adapter);
+	return m_provider->is_port_connected(m_adapter, m_index);
 }
 
 bool GameCubeController::has_rumble()
@@ -55,8 +66,11 @@ std::string GameCubeController::get_button_name(uint64 button) const
 	case kButton8: return "Start";
 	case kButton9: return "Z";
 
-	case kButton10: return "Trigger R";
-	case kButton11: return "Trigger L";
+	case kButton10: return "R";
+	case kButton11: return "L";
+
+	case kTriggerXP: return "L analog";
+	case kTriggerYP: return "R analog";
 	}
 
 	return base_type::get_button_name(button);
@@ -65,38 +79,24 @@ std::string GameCubeController::get_button_name(uint64 button) const
 ControllerState GameCubeController::raw_state()
 {
 	ControllerState result{};
-	if (!is_connected())
+	const auto state = m_provider->get_state(m_adapter, m_index);
+	if (!state.valid || state.type == GameCubeControllerProvider::kPortNone)
 		return result;
 
-	const auto state = m_provider->get_state(m_adapter, m_index);
-	if (state.valid)
+	for (uint32 i = 0; i <= kButton11; ++i)
 	{
-		for (auto i = 0; i <= kButton11; ++i)
-		{
-			if (HAS_BIT(state.button, i))
-			{
-				result.buttons.set(i);
-			}
-		}
-
-		// printf("(%d, %d) - (%d, %d) - (%d, %d)\n", state.lstick_x, state.lstick_y, state.rstick_x, state.rstick_y, state.lstick, state.rstick);
-		result.axis.x = (float)state.lstick_x / std::numeric_limits<uint8>::max();
-		result.axis.x = (result.axis.x * 2.0f) - 1.0f;
-
-		result.axis.y = (float)state.lstick_y / std::numeric_limits<uint8>::max();
-		result.axis.y = (result.axis.y * 2.0f) - 1.0f;
-
-		result.rotation.x = (float)state.rstick_x / std::numeric_limits<uint8>::max();
-		result.rotation.x = (result.rotation.x * 2.0f) - 1.0f;
-
-		result.rotation.y = (float)state.rstick_y / std::numeric_limits<uint8>::max();
-		result.rotation.y = (result.rotation.y * 2.0f) - 1.0f;
-
-
-		result.trigger.x = (float)state.lstick / std::numeric_limits<uint8>::max();
-		result.trigger.y = (float)state.rstick / std::numeric_limits<uint8>::max();
+		if (HAS_BIT(state.button, i))
+			result.buttons.SetButtonState(i, true);
 	}
-	
+
+	auto norm = [](sint16 value, float range) { return std::clamp((float)value / range, -1.0f, 1.0f); };
+	result.axis.x = norm(state.lstick_x, kStickRange);
+	result.axis.y = norm(state.lstick_y, kStickRange);
+	result.rotation.x = norm(state.rstick_x, kCStickRange);
+	result.rotation.y = norm(state.rstick_y, kCStickRange);
+	result.trigger.x = norm(state.ltrigger, kTriggerRange);
+	result.trigger.y = norm(state.rtrigger, kTriggerRange);
+
 	return result;
 }
 

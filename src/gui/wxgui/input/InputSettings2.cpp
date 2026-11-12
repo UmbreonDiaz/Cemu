@@ -31,6 +31,7 @@
 #include "wxgui/input/settings/DefaultControllerSettings.h"
 #include "wxgui/input/panels/ClassicControllerInputPanel.h"
 #include "wxgui/input/panels/WiimoteInputPanel.h"
+#include "wxgui/input/panels/GameCubeInputPanel.h"
 #include "wxgui/input/settings/WiimoteControllerSettings.h"
 #include "util/EventService.h"
 
@@ -456,6 +457,9 @@ void InputSettings2::update_state()
 			case EmulatedController::Wiimote:
 				panel = new WiimoteInputPanel(page);
 				break;
+			case EmulatedController::GameCube:
+				panel = new GameCubeInputPanel(page);
+				break;
 			default:
 				cemu_assert_debug(false);
 				return;
@@ -760,12 +764,14 @@ void InputSettings2::on_emulated_controller_dropdown(wxCommandEvent& event)
 
 	bool is_gamepad_selected = false;
 	bool is_wpad_selected = false;
+	bool is_gamecube_selected = false;
 	const auto selected = emulated_controllers->GetSelection();
 	const auto selected_value = emulated_controllers->GetStringSelection();
 	if(selected != wxNOT_FOUND)
 	{
 		is_gamepad_selected = selected_value == wxString::FromUTF8(EmulatedController::type_to_string(EmulatedController::Type::VPAD));
-		is_wpad_selected = !is_gamepad_selected && selected != 0;
+		is_gamecube_selected = selected_value == wxString::FromUTF8(EmulatedController::type_to_string(EmulatedController::Type::GameCube));
+		is_wpad_selected = !is_gamepad_selected && !is_gamecube_selected && selected != 0;
 	}
 
 	const auto [vpad_count, wpad_count] = InputManager::instance().get_controller_count();
@@ -782,6 +788,9 @@ void InputSettings2::on_emulated_controller_dropdown(wxCommandEvent& event)
 		emulated_controllers->AppendString(wxString::FromUTF8(EmulatedController::type_to_string(EmulatedController::Type::Classic)));
 		emulated_controllers->AppendString(wxString::FromUTF8(EmulatedController::type_to_string(EmulatedController::Type::Wiimote)));
 	}
+
+	if (InputManager::instance().get_hpad_controller_count() < InputManager::kMaxHPADControllers || is_gamecube_selected)
+		emulated_controllers->AppendString(wxString::FromUTF8(EmulatedController::type_to_string(EmulatedController::Type::GameCube)));
 
 	emulated_controllers->SetStringSelection(selected_value);
 }

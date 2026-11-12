@@ -76,6 +76,8 @@ add_library(CemuWxGui STATIC
   input/InputSettings2.h
   input/panels/ClassicControllerInputPanel.cpp
   input/panels/ClassicControllerInputPanel.h
+  input/panels/GameCubeInputPanel.cpp
+  input/panels/GameCubeInputPanel.h
   input/panels/InputPanel.cpp
   input/panels/InputPanel.h
   input/panels/ProControllerInputPanel.cpp

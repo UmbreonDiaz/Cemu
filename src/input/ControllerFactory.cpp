@@ -4,6 +4,7 @@
 #include "input/emulated/ProController.h"
 #include "input/emulated/ClassicController.h"
 #include "input/emulated/WiimoteController.h"
+#include "input/emulated/GameCubePadController.h"
 
 #include "input/api/Keyboard/KeyboardController.h"
 #include "input/api/DSU/DSUController.h"
@@ -86,7 +87,7 @@ ControllerPtr ControllerFactory::CreateController(InputAPI::Type api, std::strin
 			return std::make_shared<DSUController>(index);
 		}
 #endif
-#if defined(HAS_GAMECUBE) && HAS_GAMECUBE && defined(HAS_LIBUSB)
+#ifdef HAS_GAMECUBE
 	case InputAPI::GameCube:
 		{
 			const auto index = uuid.find_first_of('_');
@@ -127,6 +128,8 @@ ControllerFactory::CreateEmulatedController(size_t player_index, EmulatedControl
 		return std::make_shared<ClassicController>(player_index);
 	case EmulatedController::Type::Wiimote:
 		return std::make_shared<WiimoteController>(player_index);
+	case EmulatedController::Type::GameCube:
+		return std::make_shared<GameCubePadController>(player_index);
 	default:
 		throw std::runtime_error(fmt::format("unknown emulated controller type: {}", type));
 	}
@@ -168,7 +171,7 @@ ControllerProviderPtr ControllerFactory::CreateControllerProvider(InputAPI::Type
 		}
 
 #endif
-#if defined(HAS_GAMECUBE) && HAS_GAMECUBE && defined(HAS_LIBUSB)
+#ifdef HAS_GAMECUBE
 	case InputAPI::GameCube:
 		return std::make_shared<GameCubeControllerProvider>();
 #endif

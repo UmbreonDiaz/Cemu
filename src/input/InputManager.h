@@ -19,6 +19,7 @@
 
 #include "input/emulated/VPADController.h"
 #include "input/emulated/WPADController.h"
+#include "input/emulated/GameCubePadController.h"
 
 #include "util/helpers/Singleton.h"
 
@@ -35,6 +36,7 @@ public:
 	constexpr static size_t kMaxController = 8;
 	constexpr static size_t kMaxVPADControllers = 2;
 	constexpr static size_t kMaxWPADControllers = 7;
+	constexpr static size_t kMaxHPADControllers = 8; // GameCube controllers: 2 adapters with 4 ports each
 	
 	void load() noexcept;
 	bool load(size_t player_index, std::string_view filename = {});
@@ -57,7 +59,11 @@ public:
 	EmulatedControllerPtr get_controller(size_t player_index) const;
 	std::shared_ptr<VPADController> get_vpad_controller(size_t index) const;
 	std::shared_ptr<WPADController> get_wpad_controller(size_t index) const;
+	// GameCube controller on HPAD channel 'index' (adapter = index / 4, port = index % 4):
+	// the index-th controller of type GameCube, counted in player order
+	std::shared_ptr<GameCubePadController> get_hpad_controller(size_t index) const;
 	std::pair<size_t, size_t> get_controller_count() const;
+	size_t get_hpad_controller_count() const;
 
 	bool is_api_available(InputAPI::Type api) const { return !m_api_available[api].empty(); }
 	
@@ -105,6 +111,7 @@ private:
 	mutable std::shared_mutex m_mutex;
 	std::array<EmulatedControllerPtr, kMaxVPADControllers> m_vpad;
 	std::array<EmulatedControllerPtr, kMaxWPADControllers> m_wpad;
+	std::array<EmulatedControllerPtr, kMaxHPADControllers> m_hpad;
 
 	std::array<bool, kMaxController> m_is_gameprofile_set{};
 
